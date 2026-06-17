@@ -72,8 +72,11 @@ void set_status(Status s) {
 
 void process_nmea(char *buf, int len) {
   buf[len] = 0;
+  memset(utc_time, 0, sizeof(utc_time));
+  memset(date, 0, sizeof(date));
+  char validity;
   if (strncmp(buf, "$GPRMC", 6) == 0) {
-    if (sscanf(buf, "$GPRMC,%10[^,],%*c,%*f,%*c,%*f,%*c,%*f,%*f,%6[^,]", utc_time, date) == 2 && !time_fixed) {
+    if (sscanf(buf, "$GPRMC,%10[^,],%c,%*[^,],%*[^,],%*[^,],%*[^,],%*[^,],%*[^,],%6[^,]", utc_time, &validity, date) == 3 && validity =='A') {
       DBG_SERIAL.println("Time received. Ready to test some harnesses!");
       set_status(GOOD);
       time_fixed = true;
@@ -112,18 +115,24 @@ void setup() {
   // SD card
   if (!SD.begin(SD_CS)) {
     DBG_SERIAL.println("SD card initialization failed");
+    set_status(FAILED);
     while (1);
   }
 
   DBG_SERIAL.println("Waiting for GPS time lock...");
 }
 
-char nmea_buf[64];
+char nmea_buf[128];
 int nmea_idx = 0;
 void loop() {
   // Process incoming ublox messages
   while (UBX_SERIAL.available()) {
+    if (nmea_idx < sizeof(nmea_buf) - 1) {
     nmea_buf[nmea_idx++] = UBX_SERIAL.read();
+    } else {
+      nmea_idx = 0;
+      continue;
+    }
     if (nmea_buf[nmea_idx - 1] == '\n' || nmea_buf[nmea_idx - 1] == '\r') {
       process_nmea(nmea_buf, nmea_idx);
       nmea_idx = 0;
@@ -135,7 +144,6 @@ void loop() {
 
   // Return if we don't have a time fix yet
   if (!time_fixed) return;
-  set_status(GOOD);
 
   // Start testing only if the button is pressed
   if (digitalRead(PIN_BTN_TEST) == HIGH) return;
@@ -149,10 +157,11 @@ void loop() {
     cy.set_pd_inputs(~output_mask);
 
     uint64_t values = cy.read_inputs() & ~output_mask;
+    values &= ((uint64_t)1 << NUM_HARNESS_PINS) - 1;
 
     // Log connections to the serial port
     DBG_SERIAL.printf("Pin %d: ", i);
-    for (int j = 0; j < NUM_HARNESS_PINS; j++) DBG_SERIAL.printf("%d", (values & (1 << j)) ? 1 : 0);
+    for (int j = 0; j < NUM_HARNESS_PINS; j++) DBG_SERIAL.printf("%d", (values & (1ULL << j)) ? 1 : 0);
     DBG_SERIAL.println();
 
     if (values != EXPECTED_CONNECTIONS[i]) {

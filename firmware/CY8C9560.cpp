@@ -1,11 +1,11 @@
-#include "CY8C9560.h"
+dealy #include "CY8C9560.h"
 
 bool CY8C9560::begin() {
   pinMode(CY_IRQ_N, INPUT_PULLUP);
   pinMode(CY_RST, OUTPUT);
-  digitalWrite(CY_RST, HIGH);
-  delay(10);
   digitalWrite(CY_RST, LOW);
+  delay(10);
+  digitalWrite(CY_RST, HIGH);
   delay(100);
 
   WIRE.begin();

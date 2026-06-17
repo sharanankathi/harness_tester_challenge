@@ -95,15 +95,18 @@ void log_result(bool passed) {
 }
 
 void setup() {
+  cy.begin();
   // Serial ports
   DBG_SERIAL.begin(115200);
   UBX_SERIAL.begin(9600);
 
   // GPIO
   set_status(BUSY);
-  pinMode(PIN_BTN_TEST, INPUT);
+  pinMode(PIN_BTN_TEST, INPUT_PULLUP);
   pinMode(PIN_UBX_TIMEPULSE, INPUT);
+  pinMode(PIN_UBX_SAFEBOOT, OUTPUT);
   digitalWrite(PIN_UBX_SAFEBOOT, LOW);
+  pinMode(PIN_UBX_RST_N, OUTPUT);
   digitalWrite(PIN_UBX_RST_N, HIGH);
 
   // SD card
@@ -135,13 +138,13 @@ void loop() {
   set_status(GOOD);
 
   // Start testing only if the button is pressed
-  if (digitalRead(PIN_BTN_TEST) == LOW) return;
+  if (digitalRead(PIN_BTN_TEST) == HIGH) return;
   set_status(BUSY);
 
   // Test harness by checking the connectivity of every pin
-  bool passed = false;
+  bool passed = true;
   for (int i = 0; i < NUM_HARNESS_PINS; i++) {
-    uint64_t output_mask = 1 << i;
+    uint64_t output_mask = 1ULL << i;
     cy.set_output(output_mask, output_mask);
     cy.set_pd_inputs(~output_mask);
 
@@ -152,8 +155,8 @@ void loop() {
     for (int j = 0; j < NUM_HARNESS_PINS; j++) DBG_SERIAL.printf("%d", (values & (1 << j)) ? 1 : 0);
     DBG_SERIAL.println();
 
-    if (values == EXPECTED_CONNECTIONS[i]) {
-      passed = true;
+    if (values != EXPECTED_CONNECTIONS[i]) {
+      passed = false;
     }
   }
 

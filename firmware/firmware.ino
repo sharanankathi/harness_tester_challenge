@@ -72,10 +72,10 @@ void set_status(Status s) {
 
 void process_nmea(char *buf, int len) {
   buf[len] = 0;
-  memset(utc_time, 0, sizeof(utc_time));
-  memset(date, 0, sizeof(date));
   char validity;
   if (strncmp(buf, "$GPRMC", 6) == 0) {
+    memset(utc_time, 0, sizeof(utc_time));
+    memset(date, 0, sizeof(date));
     if (sscanf(buf, "$GPRMC,%10[^,],%c,%*[^,],%*[^,],%*[^,],%*[^,],%*[^,],%*[^,],%6[^,]", utc_time, &validity, date) == 3 && validity =='A') {
       DBG_SERIAL.println("Time received. Ready to test some harnesses!");
       set_status(GOOD);

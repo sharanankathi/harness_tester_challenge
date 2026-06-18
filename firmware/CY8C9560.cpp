@@ -18,15 +18,19 @@ uint8_t CY8C9560::read_register(uint8_t reg) {
   WIRE.beginTransmission(addr);
   WIRE.write(reg);
   WIRE.endTransmission(false);
-  WIRE.requestFrom(addr, 1U);
-  return WIRE.read();
+  if (WIRE.requestFrom(addr, 1U) != 1U) {
+    return 0xFF;  // return error value
+}
+return WIRE.read();
 }
 
 uint64_t CY8C9560::read_registers(uint8_t reg_base, uint8_t len) {
   WIRE.beginTransmission(addr);
   WIRE.write(reg_base);
   WIRE.endTransmission(false);
-  WIRE.requestFrom(addr, len);
+  if (WIRE.requestFrom(addr, len) != len) {
+    return 0;  // or handle error properly
+}
   uint64_t registers = 0;
   for (int i = 0; i < len; i++) {
     registers |= (uint64_t)WIRE.read() << (i * 8);
@@ -51,17 +55,17 @@ void CY8C9560::write_registers(uint8_t reg_base, uint64_t data, uint8_t len) {
 }
 
 uint8_t CY8C9560::read_id() {
-  return (read_register(REG_DEVICE_ID_STATUS) >> 4) & 0x0F;
+  return read_register(REG_DEVICE_ID_STATUS) & 0x0F;
 }
 
 uint64_t CY8C9560::read_inputs() {
   return read_registers(REG_INPUT_BASE, 8);
 }
 
-void CY8C9560::set_pd_inputs(uint64_t pins) {
+void CY8C9560::set_pd_inputs(uint64_t pins, uint64_t output_mask) {
   for (int i = 0; i < 8; i++) {
     write_register(REG_PORT_SELECT, i);
-    write_register(REG_PIN_DIRECTION, 0xFF);
+    write_register(REG_PIN_DIRECTION, 0xFF & ~(uint8_t)(output_mask >> (i * 8)));
     write_register(REG_PIN_DRIVE_MODE_BASE + DRIVE_MODE_PULL_DOWN, pins >> (i * 8));
   }
 }
@@ -75,10 +79,10 @@ void CY8C9560::set_pu_inputs(uint64_t pins) {
 }
 
 void CY8C9560::set_output(uint64_t pins, uint64_t values) {
-  write_registers(REG_OUTPUT_BASE, values, 8);
+  write_registers(REG_OUTPUT_BASE, values & pins, 8);
   for (int i = 0; i < 8; i++) {
     write_register(REG_PORT_SELECT, i);
-    write_register(REG_PIN_DIRECTION, 0x00);
+    write_register(REG_PIN_DIRECTION, ~(uint8_t)(pins >> (i * 8)));
     write_register(REG_PIN_DRIVE_MODE_BASE + DRIVE_MODE_STRONG, pins >> (i * 8));
   }
 }

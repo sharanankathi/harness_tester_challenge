@@ -154,7 +154,7 @@ void loop() {
   for (int i = 0; i < NUM_HARNESS_PINS; i++) {
     uint64_t output_mask = 1ULL << i;
     cy.set_output(output_mask, output_mask);
-    cy.set_pd_inputs(~output_mask);
+    cy.set_pd_inputs(~output_mask, output_mask);
 
     uint64_t values = cy.read_inputs() & ~output_mask;
     values &= ((uint64_t)1 << NUM_HARNESS_PINS) - 1;
